@@ -1,4 +1,4 @@
-file format elf64-powerpcle
+file format elf64-powerpc
 
 Sections:
 Idx Name          Size      VMA               LMA               File off  Algn  Flags

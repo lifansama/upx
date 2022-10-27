@@ -12,7 +12,7 @@ export SHELL = /bin/sh
 # 2021-03-07  BUILD_TYPE_DEBUG is off because CI build amd64-win64-gcc-9
 #             fails because it lacks libsantizer.spec, which is required
 #             by -fsanitize=undefined which is turned on by BUILD_TYPE_DEBUG.
-BUILD_TYPE_DEBUG    ?= 0
+BUILD_TYPE_DEBUG    ?= 1
 BUILD_TYPE_SANITIZE ?= 0
 BUILD_USE_DEPEND    ?= 1
 
@@ -99,7 +99,10 @@ mf.CXXFLAGS += -fno-strict-aliasing -fno-strict-overflow
 mf.CXXFLAGS += -funsigned-char
 mf.CXXFLAGS += $(CXXFLAGS_SANITIZE)
 mf.CXXFLAGS += -Wall -Wextra -Wcast-align -Wcast-qual -Wmissing-declarations -Wpointer-arith -Wshadow -Wvla -Wwrite-strings
+
+# clang-10 requires 'override'. gcc-12 does not, but "g++ -Wsuggest-override" tells you where
 ##mf.CXXFLAGS += -Wsuggest-override
+
 mf.CXXFLAGS += $(CXXFLAGS_WERROR)
 
 # rules

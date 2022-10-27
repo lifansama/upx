@@ -37,6 +37,13 @@
 #include "p_mach.h"
 #include "ui.h"
 
+#if (ACC_CC_CLANG)
+#  pragma clang diagnostic ignored "-Wcast-align"
+#endif
+#if (ACC_CC_GNUC >= 0x040200)
+#  pragma GCC diagnostic ignored "-Wcast-align"
+#endif
+
 static const
 #include "stub/i386-darwin.macho-entry.h"
 static const
@@ -75,11 +82,11 @@ static const
 #include "stub/powerpc-darwin.dylib-entry.h"
 
 static const
-#include "stub/powerpc64le-darwin.macho-entry.h"
+#include "stub/powerpc64-darwin.macho-entry.h"
 static const
-#include "stub/powerpc64le-darwin.macho-fold.h"
+#include "stub/powerpc64-darwin.macho-fold.h"
 static const
-#include "stub/powerpc64le-darwin.dylib-entry.h"
+#include "stub/powerpc64-darwin.dylib-entry.h"
 
 // Packing a Darwin (Mach-o) Mac OS X dylib (dynamic shared library)
 // is restricted.  UPX gets control as the -init function, at the very
@@ -180,6 +187,7 @@ static int is_bad_linker_command(
     unsigned cmd, unsigned cmdsize,
     unsigned headway, unsigned lc_seg, unsigned szAddr)
 {
+    cmd &= ~LC_REQ_DYLD;
    return !cmd  // there is no LC_ cmd 0
    || sizeof(lc_cmd_size) <= cmd  // beyond table of known sizes
    || !lc_cmd_size[cmd]  // obsolete, or proper size not known to us
@@ -237,7 +245,7 @@ PackDylibPPC32::PackDylibPPC32(InputFile *f) : super(f)
 {
     my_filetype = Mach_header::MH_DYLIB;
 }
-PackDylibPPC64LE::PackDylibPPC64LE(InputFile *f) : super(f)
+PackDylibPPC64::PackDylibPPC64(InputFile *f) : super(f)
 {
     my_filetype = Mach_header::MH_DYLIB;
 }
@@ -260,9 +268,9 @@ PackMachPPC32::PackMachPPC32(InputFile *f) : super(f, Mach_header::CPU_TYPE_POWE
         sizeof(Mach_ppc_thread_state)>>2, sizeof(threado), 12)
 { }
 
-PackMachPPC64LE::PackMachPPC64LE(InputFile *f) : super(f, Mach_header::CPU_TYPE_POWERPC64LE,
+PackMachPPC64::PackMachPPC64(InputFile *f) : super(f, Mach_header::CPU_TYPE_POWERPC64,
         Mach_header::MH_EXECUTE, Mach_thread_command::PPC_THREAD_STATE64,
-        sizeof(Mach_ppcle_thread_state64)>>2, sizeof(threado), 16)
+        sizeof(Mach_ppc_thread_state64)>>2, sizeof(threado), 16)
 { }
 
 const int *PackMachPPC32::getFilters() const
@@ -271,7 +279,7 @@ const int *PackMachPPC32::getFilters() const
     return filters;
 }
 
-const int *PackMachPPC64LE::getFilters() const
+const int *PackMachPPC64::getFilters() const
 {
     static const int filters[] = { 0xd0, FT_END };
     return filters;
@@ -326,9 +334,9 @@ Linker *PackMachPPC32::newLinker() const
     return new ElfLinkerPpc32;
 }
 
-Linker *PackMachPPC64LE::newLinker() const
+Linker *PackMachPPC64::newLinker() const
 {
-    return new ElfLinkerPpc64le;
+    return new ElfLinkerPpc64;
 }
 
 Linker *PackMachI386::newLinker() const
@@ -954,7 +962,7 @@ void PackDylibPPC32::pack4(OutputFile *fo, Filter &ft)  // append PackHeader
     pack4dylib(fo, ft, threado.state.srr0);
 }
 
-void PackDylibPPC64LE::pack4(OutputFile *fo, Filter &ft)  // append PackHeader
+void PackDylibPPC64::pack4(OutputFile *fo, Filter &ft)  // append PackHeader
 {
     pack4dylib(fo, ft, threado.state64.srr0);
 }
@@ -1055,7 +1063,7 @@ off_t PackDylibPPC32::pack3(OutputFile *fo, Filter &ft)  // append loader
     return len;
 }
 
-off_t PackDylibPPC64LE::pack3(OutputFile *fo, Filter &ft)  // append loader
+off_t PackDylibPPC64::pack3(OutputFile *fo, Filter &ft)  // append loader
 {
     TE64 disp;
     upx_uint64_t const zero = 0;
@@ -1223,7 +1231,7 @@ void PackMachPPC32::pack1_setup_threado(OutputFile *const fo)
     fo->write(&threado, sizeof(threado));
 }
 
-void PackMachPPC64LE::pack1_setup_threado(OutputFile *const fo)
+void PackMachPPC64::pack1_setup_threado(OutputFile *const fo)
 {
     threado.cmd = Mach_command::LC_UNIXTHREAD;
     threado.cmdsize = sizeof(threado);
@@ -1716,7 +1724,7 @@ int PackMachBase<T>::canUnpack()
     }
 
     int const small = 32 + sizeof(overlay_offset);
-    unsigned bufsize = 4096;
+    unsigned bufsize = 4096 + sizeof(PackHeader);
     if (391 == style) { // PackHeader precedes __LINKEDIT
         fi->seek(offLINK - bufsize, SEEK_SET);
     } else
@@ -1732,7 +1740,7 @@ int PackMachBase<T>::canUnpack()
         }
     } else
     if (395 == style) {
-        fi->seek(offLINK - bufsize - sizeof(PackHeader), SEEK_SET);
+        fi->seek(offLINK - bufsize, SEEK_SET);
     }
     MemBuffer buf(bufsize);
     MemBuffer buf3(bufsize);
@@ -2103,17 +2111,17 @@ bool PackMachBase<T>::canPack()
             sizeof(stub_powerpc_darwin_dylib_entry), 0, 0,
                    stub_powerpc_darwin_dylib_entry,  nullptr, nullptr
         },
-        {CPU_TYPE_POWERPC64LE, MH_EXECUTE,
-            sizeof(stub_powerpc64le_darwin_macho_entry),
-            sizeof(stub_powerpc64le_darwin_macho_fold),
+        {CPU_TYPE_POWERPC64, MH_EXECUTE,
+            sizeof(stub_powerpc64_darwin_macho_entry),
+            sizeof(stub_powerpc64_darwin_macho_fold),
             0,
-                   stub_powerpc64le_darwin_macho_entry,
-                   stub_powerpc64le_darwin_macho_fold,
+                   stub_powerpc64_darwin_macho_entry,
+                   stub_powerpc64_darwin_macho_fold,
                    nullptr
         },
-        {CPU_TYPE_POWERPC64LE, MH_DYLIB,
-            sizeof(stub_powerpc64le_darwin_dylib_entry), 0, 0,
-                   stub_powerpc64le_darwin_dylib_entry,  nullptr, nullptr
+        {CPU_TYPE_POWERPC64, MH_DYLIB,
+            sizeof(stub_powerpc64_darwin_dylib_entry), 0, 0,
+                   stub_powerpc64_darwin_dylib_entry,  nullptr, nullptr
         },
         {0,0, 0,0,0, nullptr,nullptr,nullptr}
     };
@@ -2339,19 +2347,19 @@ void PackMachFat::pack(OutputFile *fo)
                 packer.pack(fo);
             }
         } break;
-        case PackMachFat::CPU_TYPE_POWERPC64LE: {
+        case PackMachFat::CPU_TYPE_POWERPC64: {
             typedef N_Mach::Mach_header<MachClass_LE64::MachITypes> Mach_header;
             Mach_header hdr;
             fi->readx(&hdr, sizeof(hdr));
             if (hdr.filetype==Mach_header::MH_EXECUTE) {
-                PackMachPPC64LE packer(fi);
+                PackMachPPC64 packer(fi);
                 packer.initPackHeader();
                 packer.canPack();
                 packer.updatePackHeader();
                 packer.pack(fo);
             }
             else if (hdr.filetype==Mach_header::MH_DYLIB) {
-                PackDylibPPC64LE packer(fi);
+                PackDylibPPC64 packer(fi);
                 packer.initPackHeader();
                 packer.canPack();
                 packer.updatePackHeader();
@@ -2444,18 +2452,18 @@ void PackMachFat::unpack(OutputFile *fo)
                 packer.unpack(fo);
             }
         } break;
-        case PackMachFat::CPU_TYPE_POWERPC64LE: {
+        case PackMachFat::CPU_TYPE_POWERPC64: {
             N_Mach::Mach_header<MachClass_LE64::MachITypes> hdr;
             typedef N_Mach::Mach_header<MachClass_LE64::MachITypes> Mach_header;
             fi->readx(&hdr, sizeof(hdr));
             if (hdr.filetype==Mach_header::MH_EXECUTE) {
-                PackMachPPC64LE packer(fi);
+                PackMachPPC64 packer(fi);
                 packer.initPackHeader();
                 packer.canUnpack();
                 packer.unpack(fo);
             }
             else if (hdr.filetype==Mach_header::MH_DYLIB) {
-                PackDylibPPC64LE packer(fi);
+                PackDylibPPC64 packer(fi);
                 packer.initPackHeader();
                 packer.canUnpack();
                 packer.unpack(fo);
@@ -2522,10 +2530,10 @@ bool PackMachFat::canPack()
                     return false;
             }
         } break;
-        case PackMachFat::CPU_TYPE_POWERPC64LE: {
-            PackMachPPC64LE packer(fi);
+        case PackMachFat::CPU_TYPE_POWERPC64: {
+            PackMachPPC64 packer(fi);
             if (!packer.canPack()) {
-                PackDylibPPC64LE pack2r(fi);
+                PackDylibPPC64 pack2r(fi);
                 if (!pack2r.canPack())
                     return false;
             }
@@ -2592,10 +2600,10 @@ int PackMachFat::canUnpack()
             else
                 ph.format = packer.getFormat(); // FIXME: copy entire PackHeader
         } break;
-        case PackMachFat::CPU_TYPE_POWERPC64LE: {
-            PackMachPPC64LE packer(fi);
+        case PackMachFat::CPU_TYPE_POWERPC64: {
+            PackMachPPC64 packer(fi);
             if (!packer.canUnpack()) {
-                PackDylibPPC64LE pack2r(fi);
+                PackDylibPPC64 pack2r(fi);
                 if (!pack2r.canUnpack())
                     return 0;
                 else

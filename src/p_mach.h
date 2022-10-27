@@ -478,26 +478,6 @@ __packed_struct(Mach_ppc_thread_state64)
     Word vrsave;    /* Vector Save Register */
 __packed_struct_end()
 
-template <class TMachITypes>
-__packed_struct(Mach_ppcle_thread_state64)
-    typedef typename TMachITypes::Word Word;
-    typedef typename TMachITypes::Xword Xword;
-
-    Xword srr0;    /* Instruction address register (PC; entry addr) */
-    Xword srr1;    /* Machine state register (supervisor) */
-    Xword  r0, r1, r2, r3, r4, r5, r6, r7;
-    Xword  r8, r9,r10,r11,r12,r13,r14,r15;
-    Xword r16,r17,r18,r19,r20,r21,r22,r23;
-    Xword r24,r25,r26,r27,r28,r29,r30,r31;
-
-    Word cr;        /* Condition register */  // FIXME: Xword?
-    Xword xer;      /* User's integer exception register */
-    Xword lr;       /* Link register */
-    Xword ctr;      /* Count register */
-
-    Word vrsave;    /* Vector Save Register */
-__packed_struct_end()
-
 template <class TMachITypes> __packed_struct(Mach_ARM64_thread_state)
     typedef typename TMachITypes::Xword Xword;
     typedef typename TMachITypes::Word Word;
@@ -593,7 +573,7 @@ struct MachClass_64
     typedef N_Mach::Mach_source_version_command<MachITypes> Mach_source_version_command;
     typedef N_Mach::Mach_main_command<MachITypes> Mach_main_command;
 
-    typedef N_Mach64::Mach_ppcle_thread_state64<MachITypes> Mach_ppcle_thread_state64;
+    typedef N_Mach64::Mach_ppc_thread_state64<MachITypes> Mach_ppc_thread_state64;
     typedef N_Mach64::Mach_AMD64_thread_state<MachITypes> Mach_AMD64_thread_state;
     typedef N_Mach64::Mach_ARM64_thread_state<MachITypes> Mach_ARM64_thread_state;
 
@@ -716,7 +696,7 @@ typedef MachClass_LE64::Mach_version_min_command MachLE64_version_min_command;
 typedef MachClass_LE64::Mach_source_version_command MachLE64_source_version_command;
 
 typedef MachClass_BE32::Mach_ppc_thread_state  Mach_ppc_thread_state;
-typedef MachClass_LE64::Mach_ppcle_thread_state64  Mach_ppcle_thread_state64;
+typedef MachClass_BE64::Mach_ppc_thread_state64  Mach_ppc_thread_state64;
 typedef MachClass_LE32::Mach_i386_thread_state Mach_i386_thread_state;
 typedef MachClass_LE64::Mach_AMD64_thread_state  Mach_AMD64_thread_state;
 typedef MachClass_LE64::Mach_ARM64_thread_state  Mach_ARM64_thread_state;
@@ -762,14 +742,14 @@ public:
         unsigned t_flavor, unsigned ts_word_cnt, unsigned tc_size,
         unsigned page_shift);
     virtual ~PackMachBase();
-    virtual int getVersion() const { return 13; }
-    virtual const int *getCompressionMethods(int method, int level) const;
+    virtual int getVersion() const override { return 13; }
+    virtual const int *getCompressionMethods(int method, int level) const override;
 
     // called by the generic pack()
-    virtual void pack1(OutputFile *, Filter &);  // generate executable header
-    virtual int  pack2(OutputFile *, Filter &);  // append compressed data
-    virtual off_t pack3(OutputFile *, Filter &) /*= 0*/;  // append loader
-    virtual void pack4(OutputFile *, Filter &) /*= 0*/;  // append PackHeader
+    virtual void pack1(OutputFile *, Filter &) override;  // generate executable header
+    virtual int  pack2(OutputFile *, Filter &) override;  // append compressed data
+    virtual off_t pack3(OutputFile *, Filter &) override /*= 0*/;  // append loader
+    virtual void pack4(OutputFile *, Filter &) override /*= 0*/;  // append PackHeader
 
     virtual void pack4dylib(OutputFile *, Filter &, Addr init_address);
 
@@ -778,18 +758,18 @@ public:
     virtual void threado_rewrite(OutputFile *) = 0;
     virtual void threado_write(OutputFile *) = 0;
     virtual void pack1_setup_threado(OutputFile *const fo) = 0;
-    virtual void unpack(OutputFile *fo);
+    virtual void unpack(OutputFile *fo) override;
 
-    virtual bool canPack();
-    virtual int canUnpack();
+    virtual bool canPack() override;
+    virtual int canUnpack() override;
     virtual upx_uint64_t get_mod_init_func(Mach_segment_command const *segptr);
     virtual unsigned find_SEGMENT_gap(unsigned const k, unsigned pos_eof);
 
 protected:
-    virtual void patchLoader();
-    virtual void patchLoaderChecksum();
-    virtual void updateLoader(OutputFile *);
-    virtual void buildLoader(const Filter *ft);
+    virtual void patchLoader() override;
+    virtual void patchLoaderChecksum() override;
+    virtual void updateLoader(OutputFile *) override;
+    virtual void buildLoader(const Filter *ft) override;
     virtual void buildMachLoader(
         upx_byte const *const proto,
         unsigned        const szproto,
@@ -891,16 +871,16 @@ class PackMachPPC32 : public PackMachBase<MachClass_BE32>
 public:
     PackMachPPC32(InputFile *f);
 
-    virtual int getFormat() const { return UPX_F_MACH_PPC32; }
-    virtual const char *getName() const { return "macho/ppc32"; }
-    virtual const char *getFullName(const options_t *) const { return "powerpc-darwin.macho"; }
+    virtual int getFormat() const override { return UPX_F_MACH_PPC32; }
+    virtual const char *getName() const override { return "macho/ppc32"; }
+    virtual const char *getFullName(const options_t *) const override { return "powerpc-darwin.macho"; }
 
 protected:
-    virtual const int *getFilters() const;
+    virtual const int *getFilters() const override;
 
-    virtual void pack1_setup_threado(OutputFile *const fo);
-    virtual Linker* newLinker() const;
-    virtual void addStubEntrySections(Filter const *);
+    virtual void pack1_setup_threado(OutputFile *const fo) override;
+    virtual Linker* newLinker() const override;
+    virtual void addStubEntrySections(Filter const *) override;
 
     __packed_struct(Mach_thread_command)
         TE32 cmd;            /* LC_THREAD or  LC_UNIXTHREAD */
@@ -913,8 +893,8 @@ protected:
     __packed_struct_end()
 
     Mach_thread_command threado;
-    int  threado_size() const { return sizeof(threado); }
-    void threado_setPC(upx_uint64_t pc) {
+    int  threado_size() const override { return sizeof(threado); }
+    void threado_setPC(upx_uint64_t pc) override {
         memset(&threado, 0, sizeof(threado));
         threado.cmd = Mach_segment_command::LC_UNIXTHREAD;
         threado.cmdsize = sizeof(threado);
@@ -922,10 +902,10 @@ protected:
         threado.count =  my_thread_state_word_count;
         threado.state.srr0 = pc;
     }
-    void threado_rewrite(OutputFile *fo) { fo->rewrite(&threado, sizeof(threado)); }
-    void   threado_write(OutputFile *fo) {   fo->write(&threado, sizeof(threado)); }
+    void threado_rewrite(OutputFile *fo) override { fo->rewrite(&threado, sizeof(threado)); }
+    void   threado_write(OutputFile *fo) override {   fo->write(&threado, sizeof(threado)); }
 
-    upx_uint64_t threadc_getPC(void const *ptr) {
+    upx_uint64_t threadc_getPC(void const *ptr) override {
         Mach_thread_command const *tc = (Mach_thread_command const *)ptr;
         if (tc->cmd!=Mach_segment_command::LC_UNIXTHREAD
         ||  tc->cmdsize!=sizeof(threado)
@@ -937,36 +917,36 @@ protected:
     }
 };
 
-class PackMachPPC64LE : public PackMachBase<MachClass_LE64>
+class PackMachPPC64 : public PackMachBase<MachClass_BE64>
 {
-    typedef PackMachBase<MachClass_LE64> super;
+    typedef PackMachBase<MachClass_BE64> super;
 
 public:
-    PackMachPPC64LE(InputFile *f);
+    PackMachPPC64(InputFile *f);
 
-    virtual int getFormat() const { return UPX_F_MACH_PPC64LE; }
-    virtual const char *getName() const { return "macho/ppc64le"; }
-    virtual const char *getFullName(const options_t *) const { return "powerpc64le-darwin.macho"; }
+    virtual int getFormat() const override { return UPX_F_MACH_PPC64; }
+    virtual const char *getName() const override { return "macho/ppc64"; }
+    virtual const char *getFullName(const options_t *) const override { return "powerpc64-darwin.macho"; }
 
 protected:
-    virtual const int *getFilters() const;
+    virtual const int *getFilters() const override;
 
-    virtual void pack1_setup_threado(OutputFile *const fo);
-    virtual Linker* newLinker() const;
+    virtual void pack1_setup_threado(OutputFile *const fo) override;
+    virtual Linker* newLinker() const override;
 
     __packed_struct(Mach_thread_command)
-        LE32 cmd;            /* LC_THREAD or  LC_UNIXTHREAD */
-        LE32 cmdsize;        /* total size of this command */
-        LE32 flavor;
-        LE32 count;          /* sizeof(following_thread_state)/4 */
-        Mach_ppcle_thread_state64 state64;
+        BE32 cmd;            /* LC_THREAD or  LC_UNIXTHREAD */
+        BE32 cmdsize;        /* total size of this command */
+        BE32 flavor;
+        BE32 count;          /* sizeof(following_thread_state)/4 */
+        Mach_ppc_thread_state64 state64;
     #define WANT_MACH_THREAD_ENUM 1
     #include "p_mach_enum.h"
     __packed_struct_end()
 
     Mach_thread_command threado;
-    int threado_size() const { return sizeof(threado); }
-    void threado_setPC(upx_uint64_t pc) {
+    int threado_size() const override { return sizeof(threado); }
+    void threado_setPC(upx_uint64_t pc) override {
         memset(&threado, 0, sizeof(threado));
         threado.cmd = Mach_segment_command::LC_UNIXTHREAD;
         threado.cmdsize = sizeof(threado);
@@ -974,10 +954,10 @@ protected:
         threado.count =  my_thread_state_word_count;
         threado.state64.srr0 = pc;
     }
-    void threado_rewrite(OutputFile *fo) { fo->rewrite(&threado, sizeof(threado)); }
-    void   threado_write(OutputFile *fo) {   fo->write(&threado, sizeof(threado)); }
+    void threado_rewrite(OutputFile *fo) override { fo->rewrite(&threado, sizeof(threado)); }
+    void   threado_write(OutputFile *fo) override {   fo->write(&threado, sizeof(threado)); }
 
-    upx_uint64_t threadc_getPC(void const *ptr) {
+    upx_uint64_t threadc_getPC(void const *ptr)  override{
         Mach_thread_command const *tc = (Mach_thread_command const *)ptr;
         if (tc->cmd!=Mach_segment_command::LC_UNIXTHREAD
         ||  tc->cmdsize!=sizeof(threado)
@@ -996,27 +976,27 @@ class PackDylibPPC32 : public PackMachPPC32
 public:
     PackDylibPPC32(InputFile *f);
 
-    virtual int getFormat() const { return UPX_F_DYLIB_PPC32; }
-    virtual const char *getName() const { return "dylib/ppc32"; }
-    virtual const char *getFullName(const options_t *) const { return "powerpc-darwin.dylib"; }
+    virtual int getFormat() const override { return UPX_F_DYLIB_PPC32; }
+    virtual const char *getName() const override { return "dylib/ppc32"; }
+    virtual const char *getFullName(const options_t *) const override { return "powerpc-darwin.dylib"; }
 protected:
-    virtual off_t pack3(OutputFile *, Filter &);  // append loader
-    virtual void pack4(OutputFile *, Filter &);  // append PackHeader
+    virtual off_t pack3(OutputFile *, Filter &) override;  // append loader
+    virtual void pack4(OutputFile *, Filter &) override;  // append PackHeader
 };
 
-class PackDylibPPC64LE : public PackMachPPC64LE
+class PackDylibPPC64 : public PackMachPPC64
 {
-    typedef PackMachPPC64LE super;
+    typedef PackMachPPC64 super;
 
 public:
-    PackDylibPPC64LE(InputFile *f);
+    PackDylibPPC64(InputFile *f);
 
-    virtual int getFormat() const { return UPX_F_DYLIB_PPC64LE; }
-    virtual const char *getName() const { return "dylib/ppc64le"; }
-    virtual const char *getFullName(const options_t *) const { return "powerpc64le-darwin.dylib"; }
+    virtual int getFormat() const override { return UPX_F_DYLIB_PPC64; }
+    virtual const char *getName() const override { return "dylib/ppc64"; }
+    virtual const char *getFullName(const options_t *) const override { return "powerpc64-darwin.dylib"; }
 protected:
-    virtual off_t pack3(OutputFile *, Filter &);  // append loader
-    virtual void pack4(OutputFile *, Filter &);  // append PackHeader
+    virtual off_t pack3(OutputFile *, Filter &) override;  // append loader
+    virtual void pack4(OutputFile *, Filter &) override;  // append PackHeader
 };
 
 class PackMachI386 : public PackMachBase<MachClass_LE32>
@@ -1026,15 +1006,15 @@ class PackMachI386 : public PackMachBase<MachClass_LE32>
 public:
     PackMachI386(InputFile *f);
 
-    virtual int getFormat() const { return UPX_F_MACH_i386; }
-    virtual const char *getName() const { return "macho/i386"; }
-    virtual const char *getFullName(const options_t *) const { return "i386-darwin.macho"; }
+    virtual int getFormat() const override { return UPX_F_MACH_i386; }
+    virtual const char *getName() const override { return "macho/i386"; }
+    virtual const char *getFullName(const options_t *) const override { return "i386-darwin.macho"; }
 protected:
-    virtual const int *getFilters() const;
+    virtual const int *getFilters() const override;
 
-    virtual void pack1_setup_threado(OutputFile *const fo);
-    virtual Linker* newLinker() const;
-    virtual void addStubEntrySections(Filter const *);
+    virtual void pack1_setup_threado(OutputFile *const fo) override;
+    virtual Linker* newLinker() const override;
+    virtual void addStubEntrySections(Filter const *) override;
 
     __packed_struct(Mach_thread_command)
         LE32 cmd;            /* LC_THREAD or  LC_UNIXTHREAD */
@@ -1047,8 +1027,8 @@ protected:
     __packed_struct_end()
 
     Mach_thread_command threado;
-    int threado_size() const { return sizeof(threado); }
-    void threado_setPC(upx_uint64_t pc) {
+    int threado_size() const override { return sizeof(threado); }
+    void threado_setPC(upx_uint64_t pc) override {
         memset(&threado, 0, sizeof(threado));
         threado.cmd = Mach_segment_command::LC_UNIXTHREAD;
         threado.cmdsize = sizeof(threado);
@@ -1056,10 +1036,10 @@ protected:
         threado.count =  my_thread_state_word_count;
         threado.state.eip = pc;
     }
-    void threado_rewrite(OutputFile *fo) { fo->rewrite(&threado, sizeof(threado)); }
-    void   threado_write(OutputFile *fo) {   fo->write(&threado, sizeof(threado)); }
+    void threado_rewrite(OutputFile *fo) override { fo->rewrite(&threado, sizeof(threado)); }
+    void   threado_write(OutputFile *fo) override {   fo->write(&threado, sizeof(threado)); }
 
-    upx_uint64_t threadc_getPC(void const *ptr) {
+    upx_uint64_t threadc_getPC(void const *ptr)  override{
         Mach_thread_command const *tc = (Mach_thread_command const *)ptr;
         if (tc->cmd!=Mach_segment_command::LC_UNIXTHREAD
         ||  tc->cmdsize!=sizeof(threado)
@@ -1078,12 +1058,12 @@ class PackDylibI386 : public PackMachI386
 public:
     PackDylibI386(InputFile *f);
 
-    virtual int getFormat() const { return UPX_F_DYLIB_i386; }
-    virtual const char *getName() const { return "dylib/i386"; }
-    virtual const char *getFullName(const options_t *) const { return "i386-darwin.dylib"; }
+    virtual int getFormat() const override { return UPX_F_DYLIB_i386; }
+    virtual const char *getName() const override { return "dylib/i386"; }
+    virtual const char *getFullName(const options_t *) const override { return "i386-darwin.dylib"; }
 protected:
-    virtual off_t pack3(OutputFile *, Filter &);  // append loader
-    virtual void pack4(OutputFile *, Filter &);  // append PackHeader
+    virtual off_t pack3(OutputFile *, Filter &) override;  // append loader
+    virtual void pack4(OutputFile *, Filter &) override;  // append PackHeader
 };
 
 class PackMachAMD64 : public PackMachBase<MachClass_LE64>
@@ -1093,15 +1073,15 @@ class PackMachAMD64 : public PackMachBase<MachClass_LE64>
 public:
     PackMachAMD64(InputFile *f);
 
-    virtual int getFormat() const { return UPX_F_MACH_AMD64; }
-    virtual const char *getName() const { return "macho/amd64"; }
-    virtual const char *getFullName(const options_t *) const { return "amd64-darwin.macho"; }
+    virtual int getFormat() const override { return UPX_F_MACH_AMD64; }
+    virtual const char *getName() const override { return "macho/amd64"; }
+    virtual const char *getFullName(const options_t *) const override { return "amd64-darwin.macho"; }
 protected:
-    virtual const int *getFilters() const;
+    virtual const int *getFilters() const override;
 
-    virtual void pack1_setup_threado(OutputFile *const fo);
-    virtual Linker* newLinker() const;
-    virtual void addStubEntrySections(Filter const *);
+    virtual void pack1_setup_threado(OutputFile *const fo) override;
+    virtual Linker* newLinker() const override;
+    virtual void addStubEntrySections(Filter const *) override;
 
     __packed_struct(Mach_thread_command)
         typedef MachITypes::Word Word;
@@ -1115,8 +1095,8 @@ protected:
     __packed_struct_end()
 
     Mach_thread_command threado;
-    int threado_size() const { return sizeof(threado); }
-    void threado_setPC(upx_uint64_t pc) {
+    int threado_size() const override { return sizeof(threado); }
+    void threado_setPC(upx_uint64_t pc) override {
         memset(&threado, 0, sizeof(threado));
         threado.cmd = Mach_segment_command::LC_UNIXTHREAD;
         threado.cmdsize = sizeof(threado);
@@ -1124,10 +1104,10 @@ protected:
         threado.count =  my_thread_state_word_count;
         threado.state.rip = pc;
     }
-    void threado_rewrite(OutputFile *fo) { fo->rewrite(&threado, sizeof(threado)); }
-    void   threado_write(OutputFile *fo) {   fo->write(&threado, sizeof(threado)); }
+    void threado_rewrite(OutputFile *fo) override { fo->rewrite(&threado, sizeof(threado)); }
+    void   threado_write(OutputFile *fo) override {   fo->write(&threado, sizeof(threado)); }
 
-    upx_uint64_t threadc_getPC(void const *ptr) {
+    upx_uint64_t threadc_getPC(void const *ptr) override {
         Mach_thread_command const *tc = (Mach_thread_command const *)ptr;
         if (tc->cmd!=Mach_segment_command::LC_UNIXTHREAD
         ||  tc->cmdsize!=sizeof(threado)
@@ -1146,12 +1126,12 @@ class PackDylibAMD64 : public PackMachAMD64
 public:
     PackDylibAMD64(InputFile *f);
 
-    virtual int getFormat() const { return UPX_F_DYLIB_AMD64; }
-    virtual const char *getName() const { return "dylib/amd64"; }
-    virtual const char *getFullName(const options_t *) const { return "amd64-darwin.dylib"; }
+    virtual int getFormat() const override { return UPX_F_DYLIB_AMD64; }
+    virtual const char *getName() const override { return "dylib/amd64"; }
+    virtual const char *getFullName(const options_t *) const override { return "amd64-darwin.dylib"; }
 protected:
-    virtual off_t pack3(OutputFile *, Filter &);  // append loader
-    virtual void pack4(OutputFile *, Filter &);  // append PackHeader
+    virtual off_t pack3(OutputFile *, Filter &) override;  // append loader
+    virtual void pack4(OutputFile *, Filter &) override;  // append PackHeader
 };
 
 class PackMachARMEL : public PackMachBase<MachClass_LE32>
@@ -1161,16 +1141,16 @@ class PackMachARMEL : public PackMachBase<MachClass_LE32>
 public:
     PackMachARMEL(InputFile *f);
 
-    virtual int getFormat() const { return UPX_F_MACH_ARMEL; }
-    virtual const char *getName() const { return "macho/arm"; }
-    virtual const char *getFullName(const options_t *) const { return "arm-darwin.macho"; }
+    virtual int getFormat() const override { return UPX_F_MACH_ARMEL; }
+    virtual const char *getName() const override { return "macho/arm"; }
+    virtual const char *getFullName(const options_t *) const override { return "arm-darwin.macho"; }
 protected:
-    virtual const int *getCompressionMethods(int method, int level) const;
-    virtual const int *getFilters() const;
+    virtual const int *getCompressionMethods(int method, int level) const override;
+    virtual const int *getFilters() const override;
 
-    virtual void pack1_setup_threado(OutputFile *const fo);
-    virtual Linker* newLinker() const;
-    virtual void addStubEntrySections(Filter const *);
+    virtual void pack1_setup_threado(OutputFile *const fo) override;
+    virtual Linker* newLinker() const override;
+    virtual void addStubEntrySections(Filter const *) override;
 
     __packed_struct(Mach_thread_command)
         LE32 cmd;            /* LC_THREAD or  LC_UNIXTHREAD */
@@ -1183,8 +1163,8 @@ protected:
     __packed_struct_end()
 
     Mach_thread_command threado;
-    int threado_size() const { return sizeof(threado); }
-    void threado_setPC(upx_uint64_t pc) {
+    int threado_size() const override { return sizeof(threado); }
+    void threado_setPC(upx_uint64_t pc) override {
         memset(&threado, 0, sizeof(threado));
         threado.cmd = Mach_segment_command::LC_UNIXTHREAD;
         threado.cmdsize = sizeof(threado);
@@ -1192,10 +1172,10 @@ protected:
         threado.count =  my_thread_state_word_count;
         threado.state.pc = pc;
     }
-    void threado_rewrite(OutputFile *fo) { fo->rewrite(&threado, sizeof(threado)); }
-    void   threado_write(OutputFile *fo) { return   fo->write(&threado, sizeof(threado)); }
+    void threado_rewrite(OutputFile *fo) override { fo->rewrite(&threado, sizeof(threado)); }
+    void   threado_write(OutputFile *fo) override { return   fo->write(&threado, sizeof(threado)); }
 
-    upx_uint64_t threadc_getPC(void const *ptr) {
+    upx_uint64_t threadc_getPC(void const *ptr) override {
         Mach_thread_command const *tc = (Mach_thread_command const *)ptr;
         if (tc->cmd!=Mach_segment_command::LC_UNIXTHREAD
         ||  tc->cmdsize!=sizeof(threado)
@@ -1214,15 +1194,15 @@ class PackMachARM64EL : public PackMachBase<MachClass_LE64>
 public:
     PackMachARM64EL(InputFile *f);
 
-    virtual int getFormat() const { return UPX_F_MACH_ARM64EL; }
-    virtual const char *getName() const { return "macho/arm64"; }
-    virtual const char *getFullName(const options_t *) const { return "arm64-darwin.macho"; }
+    virtual int getFormat() const override { return UPX_F_MACH_ARM64EL; }
+    virtual const char *getName() const override { return "macho/arm64"; }
+    virtual const char *getFullName(const options_t *) const override { return "arm64-darwin.macho"; }
 protected:
-    virtual const int *getFilters() const;
+    virtual const int *getFilters() const override;
 
-    virtual void pack1_setup_threado(OutputFile *const fo);
-    virtual Linker* newLinker() const;
-    virtual void addStubEntrySections(Filter const *);
+    virtual void pack1_setup_threado(OutputFile *const fo) override;
+    virtual Linker* newLinker() const override;
+    virtual void addStubEntrySections(Filter const *) override;
 
     __packed_struct(Mach_thread_command)
         LE32 cmd;            /* LC_THREAD or  LC_UNIXTHREAD */
@@ -1235,8 +1215,8 @@ protected:
     __packed_struct_end()
 
     Mach_thread_command threado;
-    int threado_size() const { return sizeof(threado); }
-    void threado_setPC(upx_uint64_t pc) {
+    int threado_size() const override { return sizeof(threado); }
+    void threado_setPC(upx_uint64_t pc) override {
         memset(&threado, 0, sizeof(threado));
         threado.cmd = Mach_segment_command::LC_UNIXTHREAD;
         threado.cmdsize = sizeof(threado);
@@ -1244,10 +1224,10 @@ protected:
         threado.count =  my_thread_state_word_count;
         threado.state.pc = pc;
     }
-    void threado_rewrite(OutputFile *fo) { fo->rewrite(&threado, sizeof(threado)); }
-    void   threado_write(OutputFile *fo) {   fo->write(&threado, sizeof(threado)); }
+    void threado_rewrite(OutputFile *fo) override { fo->rewrite(&threado, sizeof(threado)); }
+    void   threado_write(OutputFile *fo) override {   fo->write(&threado, sizeof(threado)); }
 
-    upx_uint64_t threadc_getPC(void const *ptr) {
+    upx_uint64_t threadc_getPC(void const *ptr) override {
         Mach_thread_command const *tc = (Mach_thread_command const *)ptr;
         if (tc->cmd!=Mach_segment_command::LC_UNIXTHREAD
         ||  tc->cmdsize!=sizeof(threado)
@@ -1266,28 +1246,28 @@ public:
     PackMachFat(InputFile *f);
     virtual ~PackMachFat();
 
-    virtual int getVersion() const { return 13; }
-    virtual int getFormat() const { return UPX_F_MACH_FAT; }
-    virtual const char *getName() const { return "macho/fat"; }
-    virtual const char *getFullName(const options_t *) const { return "fat-darwin.macho"; }
-    virtual const int *getCompressionMethods(int method, int level) const;
-    virtual const int *getFilters() const;
+    virtual int getVersion() const override { return 13; }
+    virtual int getFormat() const override { return UPX_F_MACH_FAT; }
+    virtual const char *getName() const override { return "macho/fat"; }
+    virtual const char *getFullName(const options_t *) const override { return "fat-darwin.macho"; }
+    virtual const int *getCompressionMethods(int method, int level) const override;
+    virtual const int *getFilters() const override;
 
 protected:
     // implementation
     virtual unsigned check_fat_head();  // number of architectures
-    virtual void pack(OutputFile *fo);
-    virtual void unpack(OutputFile *fo);
-    virtual void list();
+    virtual void pack(OutputFile *fo) override;
+    virtual void unpack(OutputFile *fo) override;
+    virtual void list() override;
 
 public:
-    virtual bool canPack();
-    virtual int canUnpack();
+    virtual bool canPack() override;
+    virtual int canUnpack() override;
 
 protected:
     // loader core
-    virtual void buildLoader(const Filter *ft);
-    virtual Linker* newLinker() const;
+    virtual void buildLoader(const Filter *ft) override;
+    virtual Linker* newLinker() const override;
 
     enum { N_FAT_ARCH = 5 };
 protected:
